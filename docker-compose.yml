@@ -7,7 +7,7 @@ services:
     container_name: avideo_db
     #tty: true
     ports:
-      - 3306
+      - "3306:3306"
     environment:
       - MYSQL_USER=root
       - MYSQL_PASSWORD=root
@@ -32,6 +32,8 @@ services:
     expose:
       - 80
       - 443
+    ports:
+      - "8083:80"
     #volumes:
     #  - .:/var/www/avideo:rw
     networks:
@@ -41,4 +43,3 @@ services:
 networks:
   app_net:
     driver: bridge
-
