@@ -690,7 +690,7 @@ if (!class_exists('Video')) {
         }
 
         public static function getVideo($id = "", $status = "viewable", $ignoreGroup = false, $random = false, $suggestedOnly = false, $showUnlisted = false, $ignoreTags = false, $activeUsersOnly = true) {
-            global $global, $config, $advancedCustom, $advancedCustomUser;
+            global $global, $config, $advancedCustom;
             if ($config->currentVersionLowerThen('5')) {
                 return false;
             }
@@ -771,9 +771,6 @@ if (!class_exists('Video')) {
 
             if (!empty($_POST['searchPhrase'])) {
                 $searchFieldsNames = array('v.title', 'v.description', 'c.name', 'c.description');
-                if($advancedCustomUser->videosSearchAlsoSearchesOnChannelName){
-                    $searchFieldsNames[] = 'u.channelName';
-                }
                 if (AVideoPlugin::isEnabledByName("VideoTags")) {
                     $sql .= " AND (";
                     $sql .= "v.id IN (select videos_id FROM tags_has_videos LEFT JOIN tags as t ON tags_id = t.id AND t.name LIKE '%{$_POST['searchPhrase']}%' WHERE t.id is NOT NULL)";
@@ -787,6 +784,45 @@ if (!class_exists('Video')) {
                     $sql .= self::getFullTextSearch($searchFieldsNames, $_POST['searchPhrase']) . ')';
                 }
             }
+			
+			if (!empty($_GET['search_with'])) {
+                $sql .= " AND ( v.id IN (";
+
+                $search_with = "SELECT video_id FROM videos_frames WHERE class LIKE '%{$_GET['search_with']}%'";
+
+                if (!empty($_GET['in_audio'])) {
+                    $search_with = "
+                        SELECT vf.video_id 
+                        FROM videos_frames vf 
+                        JOIN videos_audio va ON vf.video_id = va.video_id
+                        WHERE vf.class LIKE '%{$_GET['search_with']}%' AND va.text LIKE '%{$_GET['search_with']}%'
+                    ";
+                }
+                $sql .= $search_with.")";
+                $sql .= ")";
+
+                $search_with = "";
+            }
+
+            if (!empty($_GET['search_without'])) {
+                $sql .= " AND ( v.id NOT IN (";
+
+                $search_without = "SELECT video_id FROM videos_frames WHERE class LIKE '%{$_GET['search_without']}%'";
+
+                if (!empty($_GET['in_audio'])) {
+                    $search_without = "
+                        SELECT vf.video_id 
+                        FROM videos_frames vf 
+                        JOIN videos_audio va ON vf.video_id = va.video_id
+                        WHERE vf.class LIKE '%{$_GET['search_without']}%' AND va.text LIKE '%{$_GET['search_without']}%'
+                    ";
+                }
+                $sql .= $search_without.")";
+                $sql .= ")";
+
+                $search_without = "";
+            }
+			
             if (!$ignoreGroup) {
                 $arrayNotIN = AVideoPlugin::getAllVideosExcludeVideosIDArray();
                 if (!empty($arrayNotIN) && is_array($arrayNotIN)) {
@@ -975,7 +1011,7 @@ if (!class_exists('Video')) {
          * @return boolean
          */
         public static function getAllVideos($status = "viewable", $showOnlyLoggedUserVideos = false, $ignoreGroup = false, $videosArrayId = array(), $getStatistcs = false, $showUnlisted = false, $activeUsersOnly = true, $suggestedOnly = false, $is_serie = null) {
-            global $global, $config, $advancedCustom, $advancedCustomUser;
+            global $global, $config, $advancedCustom;
             if ($config->currentVersionLowerThen('5')) {
                 return false;
             }
@@ -1090,9 +1126,6 @@ if (!class_exists('Video')) {
 
             if (!empty($_POST['searchPhrase'])) {
                 $searchFieldsNames = array('v.title', 'v.description', 'c.name', 'c.description');
-                if($advancedCustomUser->videosSearchAlsoSearchesOnChannelName){
-                    $searchFieldsNames[] = 'u.channelName';
-                }
                 if (AVideoPlugin::isEnabledByName("VideoTags")) {
                     $sql .= " AND (";
                     $sql .= "v.id IN (select videos_id FROM tags_has_videos LEFT JOIN tags as t ON tags_id = t.id AND t.name LIKE '%{$_POST['searchPhrase']}%' WHERE t.id is NOT NULL)";
@@ -1442,7 +1475,7 @@ if (!class_exists('Video')) {
         }
 
         public static function getTotalVideos($status = "viewable", $showOnlyLoggedUserVideos = false, $ignoreGroup = false, $showUnlisted = false, $activeUsersOnly = true, $suggestedOnly = false) {
-            global $global, $config, $advancedCustomUser;
+            global $global, $config;
             if ($config->currentVersionLowerThen('5')) {
                 return false;
             }
@@ -1534,9 +1567,6 @@ if (!class_exists('Video')) {
 
             if (!empty($_POST['searchPhrase'])) {
                 $searchFieldsNames = array('v.title', 'v.description', 'c.name', 'c.description');
-                if($advancedCustomUser->videosSearchAlsoSearchesOnChannelName){
-                    $searchFieldsNames[] = 'u.channelName';
-                }
                 if (AVideoPlugin::isEnabledByName("VideoTags")) {
                     $sql .= " AND (";
                     $sql .= "v.id IN (select videos_id FROM tags_has_videos LEFT JOIN tags as t ON tags_id = t.id AND t.name LIKE '%{$_POST['searchPhrase']}%' WHERE t.id is NOT NULL)";
@@ -2963,6 +2993,7 @@ if (!class_exists('Video')) {
 
             $cleanName = str_replace($search, $replace, $filename);
             $path_parts = pathinfo($cleanName);
+            
             if (!empty($path_parts["extension"]) && $path_parts["extension"] === "m3u8") {
                 preg_match('/videos\/([^\/]+)/', $path_parts["dirname"], $matches);
                 if (!empty($matches[1])) {
@@ -2979,9 +3010,7 @@ if (!class_exists('Video')) {
             } else if (strlen($path_parts['extension']) > 4) {
                 return $cleanName;
             } else if ($path_parts['filename'] == 'index' && $path_parts['extension'] == 'm3u8') {
-                $clanFileName = str_replace(getVideosDir(), '', $path_parts['dirname']);
-                $parts = explode(DIRECTORY_SEPARATOR, $clanFileName);
-                return $parts[0];
+                return str_replace(array(getVideosDir(), DIRECTORY_SEPARATOR), '', $path_parts['dirname']);
             } else {
                 return $path_parts['filename'];
             }
