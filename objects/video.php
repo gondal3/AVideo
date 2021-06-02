@@ -667,7 +667,7 @@ if (!class_exists('Video')) {
             if (Permissions::canModerateVideos()) {
                 return "";
             }
-            
+
             $obj = AVideoPlugin::getDataObject('Subscription');
             if ($obj && $obj->allowFreePlayWithAds) {
                 $sql = " AND {$tableAlias}only_for_paid = 0 ";
@@ -784,18 +784,18 @@ if (!class_exists('Video')) {
                     $sql .= self::getFullTextSearch($searchFieldsNames, $_POST['searchPhrase']) . ')';
                 }
             }
-			
+
 			if (!empty($_GET['search_with'])) {
                 $sql .= " AND ( v.id IN (";
 
-                $search_with = "SELECT video_id FROM videos_frames WHERE class LIKE '%{$_GET['search_with']}%'";
+                $search_with = "SELECT video_id FROM videos_class_frames WHERE class LIKE '%{$_GET['search_with']}%'";
 
                 if (!empty($_GET['in_audio'])) {
                     $search_with = "
-                        SELECT vf.video_id 
-                        FROM videos_frames vf 
-                        JOIN videos_audio va ON vf.video_id = va.video_id
-                        WHERE vf.class LIKE '%{$_GET['search_with']}%' AND va.text LIKE '%{$_GET['search_with']}%'
+                        SELECT vf.video_id
+                        FROM videos_class_frames vf
+                        JOIN videos_words_count va ON vf.video_id = va.video_id
+                        WHERE vf.class LIKE '%{$_GET['search_with']}%' AND va.words LIKE '%{$_GET['search_with']}%'
                     ";
                 }
                 $sql .= $search_with.")";
@@ -807,14 +807,14 @@ if (!class_exists('Video')) {
             if (!empty($_GET['search_without'])) {
                 $sql .= " AND ( v.id NOT IN (";
 
-                $search_without = "SELECT video_id FROM videos_frames WHERE class LIKE '%{$_GET['search_without']}%'";
+                $search_without = "SELECT video_id FROM videos_class_frames WHERE class LIKE '%{$_GET['search_without']}%'";
 
                 if (!empty($_GET['in_audio'])) {
                     $search_without = "
-                        SELECT vf.video_id 
-                        FROM videos_frames vf 
-                        JOIN videos_audio va ON vf.video_id = va.video_id
-                        WHERE vf.class LIKE '%{$_GET['search_without']}%' AND va.text LIKE '%{$_GET['search_without']}%'
+                        SELECT vf.video_id
+                        FROM videos_class_frames vf
+                        JOIN videos_words_count va ON vf.video_id = va.video_id
+                        WHERE vf.class LIKE '%{$_GET['search_without']}%' AND va.words LIKE '%{$_GET['search_without']}%'
                     ";
                 }
                 $sql .= $search_without.")";
@@ -822,7 +822,7 @@ if (!class_exists('Video')) {
 
                 $search_without = "";
             }
-			
+
             if (!$ignoreGroup) {
                 $arrayNotIN = AVideoPlugin::getAllVideosExcludeVideosIDArray();
                 if (!empty($arrayNotIN) && is_array($arrayNotIN)) {
@@ -1690,7 +1690,7 @@ if (!class_exists('Video')) {
                 if (!empty($content)) {
                     $object->$value = self::parseProgress($content);
                 } else {
-                    
+
                 }
 
                 if (!empty($object->$value->progress) && !is_numeric($object->$value->progress)) {
@@ -2852,11 +2852,11 @@ if (!class_exists('Video')) {
             //if(!isValidFormats($type)){
             //return array();
             //}
-            
+
             if($type == '_thumbsSmallV2.jpg' && empty($advancedCustom->usePreloadLowResolutionImages)){
                 return array('path'=>$global['systemRootPath'].'view/img/loading-gif.png', 'url'=>getCDN().'view/img/loading-gif.png');
             }
-            
+
             $cacheName = md5($filename . $type . $includeS3);
             if (0 && isset($VideoGetSourceFile[$cacheName]) && is_array($VideoGetSourceFile[$cacheName])) {
                 if (!preg_match("/token=/", $VideoGetSourceFile[$cacheName]['url'])) {
@@ -2986,14 +2986,14 @@ if (!class_exists('Video')) {
             foreach ($global['avideo_resolutions'] as $value) {
                 $search[] = "_{$value}";
                 $replace[] = '';
-                
+
                 $search[] = "res{$value}";
                 $replace[] = '';
             }
 
             $cleanName = str_replace($search, $replace, $filename);
             $path_parts = pathinfo($cleanName);
-            
+
             if (!empty($path_parts["extension"]) && $path_parts["extension"] === "m3u8") {
                 preg_match('/videos\/([^\/]+)/', $path_parts["dirname"], $matches);
                 if (!empty($matches[1])) {
